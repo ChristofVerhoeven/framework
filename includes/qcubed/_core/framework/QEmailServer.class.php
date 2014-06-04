@@ -129,17 +129,20 @@
 		/**
 		 * Encodes given 8 bit string to a quoted-printable string,
 		 * @param string $strString
+		 * @param boolean $blnReplaceSpaces
 		 * @return encoded string
 		 */
-		private static function QuotedPrintableEncode($strString) {
-			if ( function_exists('quoted_printable_encode') )
+		private static function QuotedPrintableEncode($strString, $blnReplaceSpaces = false) {
+			if (function_exists('quoted_printable_encode')) {
 				$strText = quoted_printable_encode($strString);
-			else
-				$strText = preg_replace( '/[^\x21-\x3C\x3E-\x7E\x09\x20]/e', 'sprintf( "=%02X", ord ( "$0" ) ) ;', $strString );
+			} else {
+				$strText = preg_replace('/[^\x21-\x3C\x3E-\x7E\x09\x20]/e', 'sprintf("=%02X", ord("$0"));', $strString);
+				preg_match_all( '/.{1,73}([^=]{0,2})?/', $strText, $cap);
+				$strText = implode("=\r\n", $cap[0]);
+        		}
+			$strText = str_replace("\n.", "\n..", $strText); // because mail clients drop leading dots 
 
-			preg_match_all( '/.{1,73}([^=]{0,2})?/', $strText, $arrMatch );
-			$strText = implode( '=' . "\r\n", $arrMatch[0] );
-			return $strText;
+			return $blnReplaceSpaces ? str_replace(array("_"," "), array("=5F","_"), $strText) : $strText;
 		}
 
 
@@ -317,7 +320,7 @@
 
 			// Send: Optional Headers
 			if ($objMessage->Subject)
-				fwrite($objResource, sprintf("Subject: =?%s?Q?%s?=\r\n", $strEncodingType, self::QuotedPrintableEncode($objMessage->Subject)));
+				fwrite($objResource, sprintf("Subject: =?%s?Q?%s?=\r\n", $strEncodingType, self::QuotedPrintableEncode($objMessage->Subject, true)));
 			if ($objMessage->Cc)
 				fwrite($objResource, sprintf("Cc: %s\r\n", $objMessage->Cc));
 
